@@ -9,45 +9,43 @@ class SimpleCell:
     # To be used for empirical gradient calculation
     H = 0.0005
     
-    def __init__(self, ninputs, sigmoid=np.tanh, learning_rate=0.25):
+    def __init__(self, ninputs, sigmoid=np.tanh, learning_rate=0.25, n_nodes=4):
         assert ninputs >= 1.0
         
+        self.n_nodes = n_nodes
         self.ninputs = ninputs
         self.sigmoid = sigmoid
         self.learning_rate = learning_rate
 
         weight_dist_range = np.sqrt(1. / ninputs)
         # Input weights
-        self.U = np.random.uniform(-weight_dist_range, weight_dist_range, ninputs)
+        self.U = np.random.uniform(-weight_dist_range, weight_dist_range, (n_nodes, ninputs))
         # Output bias
-        self.bias = np.random.uniform(-weight_dist_range, weight_dist_range)
+        self.bias = np.random.uniform(-weight_dist_range, weight_dist_range, n_nodes)
         # Weight for recurrent connection
-        self.w = np.random.uniform(-1., 1.)
+        self.W = np.random.uniform(-1., 1., (n_nodes, n_nodes))
 
-        self.h = list([0])  # h[t] = h_t (h at time step t)
-                            # Initialized with a zero so the first iteration has a t-1 to reference
-    
     def forward_prop(self, x):
         time_steps = len(x)
-        
         # Validate input size
-        for xt in x:
-            assert len(xt) == self.ninputs
+        for i in range(len(x)):
+            xi = x[i]
+            assert len(xi) == self.ninputs
+            if type(xi) == list:
+                x[i] = np.array([xi]).transpose() # Turn the input into a column vector
         
         # Have an extra element so we dont have 't - 1' everywhere
         x = [None] + list(x)
-        self.h = np.zeros(time_steps + 1)
+        self.h = np.zeros((time_steps + 1, self.n_nodes))
         output = np.zeros(time_steps + 1)
 
         # Starts at t = 1, so h[t - 1] will be h[0] 
         for t in range(1, time_steps + 1):
             inpt = x[t]
             prev_h = self.h[t - 1]
-
-            h = self.sigmoid(self.bias + np.dot(self.U, inpt) + self.w * prev_h)
-            output[t] = h 
-            self.h[t] = h
-
+            h = self.sigmoid(self.bias + self.sigmoid(sum(self.W * prev_h)) * (self.U * inpt).transpose())
+            output[t] = sum(h[0])
+            self.h[t, :] = h
         return output[1:]
 
     def error(self, o, exp_o):
@@ -61,29 +59,35 @@ class SimpleCell:
         return s
 
     def empirical_gradients(self, x, exp_o):
-        bias = self.bias
-        
-        self.bias = bias + SimpleCell.H
-        err_upper = self.error(self.forward_prop(x), exp_o)
-        
-        self.bias = bias - SimpleCell.H
-        err_lower = self.error(self.forward_prop(x), exp_o)
-        
-        self.bias = bias
-        d_bias = (err_upper - err_lower) / (2. * SimpleCell.H)
+        d_U = np.zeros(self.U.shape)
+        d_bias = np.zeros(self.n_nodes)
 
-        d_U = np.zeros(self.ninputs)
-        for weight_index in range(0, self.ninputs):
-            weight = self.U[weight_index]
-            
-            self.U[weight_index] = weight + SimpleCell.H
+        for node_index in range(0, self.n_nodes):
+            bias = self.bias[node_index]
+        
+            self.bias[node_index] = bias + SimpleCell.H
             err_upper = self.error(self.forward_prop(x), exp_o)
 
-            self.U[weight_index] = weight - SimpleCell.H
+            self.bias[node_index] = bias - SimpleCell.H
             err_lower = self.error(self.forward_prop(x), exp_o)
+        
+            self.bias[node_index] = bias
+            d_bias[node_index] = (err_upper - err_lower) / (2. * SimpleCell.H)
 
-            d_weight = (err_upper - err_lower) / (2. * SimpleCell.H)
-            d_U[weight_index] = d_weight
+
+            for weight_index in range(0, self.ninputs):
+                weight = self.U[node_index, weight_index]
+            
+                self.U[node_index, weight_index] = weight + SimpleCell.H
+                err_upper = self.error(self.forward_prop(x), exp_o)
+
+                self.U[node_index, weight_index] = weight - SimpleCell.H
+                err_lower = self.error(self.forward_prop(x), exp_o)
+                
+                self.U[node_index, weight_index] = weight
+
+                d_weight = (err_upper - err_lower) / (2. * SimpleCell.H)
+                d_U[node_index, weight_index] = d_weight
         
         return SimpleNamespace(d_bias=d_bias, d_U=d_U)
 
