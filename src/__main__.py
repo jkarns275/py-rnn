@@ -1,22 +1,12 @@
-from simple_cell import SimpleCell
 import numpy as np
 import matplotlib.pyplot as plt
+from rnn import RNetwork
 
 def main():
-    mycell = SimpleCell(1, learning_rate=0.125, n_nodes=2)
-    
-    training_input = [[i / 100 * (2 * np.pi)] for i in range(100)]
-    training_outpt = [(np.cos(i) + 1) / 2 for i in training_input]
+    rnn = RNetwork(1, 1)
+    rnn.get_output_neuron(0).add_input(rnn.get_input_neuron(0), 0)
+    print(rnn.think([[1.0]]))
 
-    x = [i[0] for i in training_input]
 
-    for i in range(0, 200):
-        mycell.slow_learn(training_input, training_outpt)
-        output = mycell.forward_prop(training_input)
-        error = mycell.error(output, training_outpt)
-        print(f"error = {error[0]}")
-    plt.plot(x, output)
-    plt.plot(x, training_outpt)
-    plt.show()
 if __name__ == "__main__":
     main()
