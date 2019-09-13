@@ -57,11 +57,10 @@ class RNetwork:
             print(f"t = {t}")
             for i, neuron in enumerate(self.output_neurons):
                 neuron.back_propagate(t, gradients, expected=exp_outputs[t][i])
-        return gradients 
-        # for neuron in self.neurons:
-        #    g1, g2 = gradients[neuron]
-        #    neuron.w1 -= g1 * learning_rate * err
-        #    neuron.w2 -= g1 * learning_rate * err
+        for neuron in self.neurons:
+           g1, g2 = gradients[neuron]
+           neuron.w1 -= g1 * learning_rate * err
+           neuron.w2 -= g2 * learning_rate * err
 
     def empirical_learn(self, inputs, exp_outputs, err, learning_rate=0.425):
         gradients = {}

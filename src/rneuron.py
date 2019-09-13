@@ -144,6 +144,7 @@ class RNeuron:
             neuron.back_propagate(t, gradients)
         for neuron, _ in self.rec_input_neurons:
             neuron.back_propagate(t, gradients)
+    
     def propagate(self, t):
         if self.t == t:
             return
